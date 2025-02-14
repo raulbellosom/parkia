@@ -1,0 +1,219 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// Modelo Empresa
+model Empresa {
+  id        String   @id @default(uuid())
+  nombre    String   
+  direccion String   @db.Text
+  telefono  String   @db.VarChar(20)
+  email     String   @db.VarChar(255)
+  createdAt DateTime @default(now())
+
+  usuarios  Usuario[]
+  vehiculos Vehiculo[]
+}
+
+// Modelo Usuario
+model Usuario {
+  id        String   @id @default(uuid())
+  nombre    String   @db.VarChar(255)
+  email     String   @unique @db.VarChar(255)
+  password  String   @db.Text
+  rol       Rol
+  empresaId String   
+  empresa   Empresa? @relation(fields: [empresaId], references: [id])
+  createdAt DateTime @default(now())
+
+  choferDetalle  ChoferDetalle?
+  asignaciones   AsignacionChoferVehiculo[]
+  actividades    RegistroActividadVehiculo[]
+
+  TrackerViajes TrackerViajes[]
+}
+
+// Enum para roles de usuario
+enum Rol {
+  ADMIN_GLOBAL
+  ADMIN_EMPRESA
+  SECRETARIA
+  CHOFER
+}
+
+// Modelo ChoferDetalle
+model ChoferDetalle {
+  id                String   @id @default(uuid())
+  usuarioId         String   @unique
+  usuario          Usuario  @relation(fields: [usuarioId], references: [id])
+  CURP              String   @db.VarChar(18)
+  numLicencia       String   @db.VarChar(50)
+  tarjetaCirculacion String?  @db.VarChar(50)
+  fechaIngreso      DateTime
+  activo           Boolean  @default(true)
+}
+
+// Modelo Vehiculo
+model Vehiculo {
+  id        String   @id @default(uuid())
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id])
+  modelo    String   @db.VarChar(255)
+  marca     String   @db.VarChar(255)
+  placa     String   @unique @db.VarChar(50)
+  año       Int
+  tipo      TipoVehiculo
+  estado    EstadoVehiculo
+  createdAt DateTime @default(now())
+
+  asignaciones AsignacionChoferVehiculo[]
+  actividad   RegistroActividadVehiculo[]
+  tarjetas    TarjetaRecarga[]
+
+  TrackerViajes TrackerViajes[]
+}
+
+// Enum para tipo de vehículo
+enum TipoVehiculo {
+  CATEGORIA_G
+  CATEGORIA_M
+}
+
+// Enum para estado del vehículo
+enum EstadoVehiculo {
+  DISPONIBLE
+  MANTENIMIENTO
+  FUERA_DE_SERVICIO
+}
+
+// Modelo Asignación Chofer-Vehículo
+model AsignacionChoferVehiculo {
+  id          String   @id @default(uuid())
+  choferId    String
+  chofer      Usuario  @relation(fields: [choferId], references: [id])
+  vehiculoId  String
+  vehiculo    Vehiculo @relation(fields: [vehiculoId], references: [id])
+  fechaAsignacion DateTime @default(now())
+}
+
+// Modelo Registro de Actividad del Vehículo
+model RegistroActividadVehiculo {
+  id         String   @id @default(uuid())
+  vehiculoId String
+  vehiculo   Vehiculo @relation(fields: [vehiculoId], references: [id])
+  evento     String   @db.Text
+  usuarioId  String
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id])
+  fecha      DateTime @default(now())
+}
+
+// Modelo Tarjeta de Recarga
+model TarjetaRecarga {
+  id         String   @id @default(uuid())
+  vehiculoId String
+  vehiculo   Vehiculo @relation(fields: [vehiculoId], references: [id])
+  codigo     String   @unique @db.VarChar(50)
+  categoria  TipoVehiculo
+  saldo      Int      @default(0)
+  createdAt  DateTime @default(now())
+}
+
+// Modelo Tracker de Viajes
+model TrackerViajes {
+  id                  String  @id @default(uuid())
+  choferId            String
+  chofer              Usuario @relation(fields: [choferId], references: [id])
+  vehiculoId          String
+  vehiculo            Vehiculo @relation(fields: [vehiculoId], references: [id])
+  tipo                TipoViaje
+  fechaInicio         DateTime @default(now())
+  fechaFin            DateTime?
+  solicitudCancelacion Boolean @default(false)
+
+  EventoOperativo EventoOperativo[]
+}
+
+// Enum para tipos de viaje
+enum TipoViaje {
+  RECOGIDA
+  ABORDAJE
+}
+
+// Modelo Eventos Operativos
+model EventoOperativo {
+  id         String   @id @default(uuid())
+  tripId     String
+  trip       TrackerViajes @relation(fields: [tripId], references: [id])
+  tipo       TipoEvento
+  timestamp  DateTime @default(now())
+}
+
+// Enum para tipos de eventos operativos
+enum TipoEvento {
+  LLEGADA_ESTACIONAMIENTO
+  SALIDA_ESTACIONAMIENTO
+  CHECKPOINT_CLIENTES
+}
+
+// Modelo Archivos Generales
+model Archivo {
+  id           String  @id @default(uuid())
+  entidad      TipoEntidad
+  referenciaId String
+  url          String @db.Text
+  tipo         TipoArchivo
+}
+
+// Enum para tipos de entidades en archivos
+enum TipoEntidad {
+  USUARIO
+  VEHICULO
+  EMPRESA
+  RECARGA
+}
+
+// Enum para tipos de archivos
+enum TipoArchivo {
+  DOCUMENTO
+  SEGURO
+  FACTURA
+  RECIBO
+}
+
+// Modelo Imágenes Generales
+model Imagen {
+  id           String   @id @default(uuid())
+  entidad      TipoEntidadImagen
+  referenciaId String
+  url          String   @db.Text
+  urlThumb     String   @db.Text
+  tipo         TipoImagen?
+}
+
+// Enum para tipos de entidades en imágenes
+enum TipoEntidadImagen {
+  USUARIO
+  VEHICULO
+  EMPRESA
+  CHOFER
+}
+
+// Enum para tipos de imágenes
+enum TipoImagen {
+  PERFIL
+  LICENCIA_FRENTE
+  LICENCIA_REVERSO
+  LOGO
+  GENERALES_VEHICULOS
+}
